@@ -31,12 +31,12 @@ var dcs = [...]string{"segundo", "cuarto", "tercero", "latitude"}
 
 type DcTab struct {
 	sync.RWMutex
-	name      string
-	dc        string
-	button    widget.Clickable
-	err       error
-	menu      Menu
-	scrollPos layout.Position
+	name     string
+	dc       string
+	button   widget.Clickable
+	err      error
+	menu     Menu
+	scroller layout.List
 }
 
 func (d *DcTab) load(today Date) {
@@ -81,14 +81,13 @@ func (d *DcTab) layout(th *material.Theme, gtx layout.Context, today Date) layou
 		return material.Body1(th, fmt.Sprintf("Error: %v", d.err)).Layout(gtx)
 	}
 
-	l := layout.List{Axis: layout.Vertical, Position: d.scrollPos}
-
 	currentDay := d.menu.Daily[today]
 	if currentDay == nil {
 		return material.Body1(th, "Today's menu was not fetched.").Layout(gtx)
 	}
 
-	dim := l.Layout(gtx, len(currentDay.Sections), func(gtx layout.Context, index int) layout.Dimensions {
+	d.scroller.Axis = layout.Vertical
+	return d.scroller.Layout(gtx, len(currentDay.Sections), func(gtx layout.Context, index int) layout.Dimensions {
 		elems := []layout.FlexChild{}
 		for _, section := range currentDay.Sections {
 			elems = append(elems, layout.Rigid(material.H3(th, section.Name).Layout))
@@ -104,10 +103,6 @@ func (d *DcTab) layout(th *material.Theme, gtx layout.Context, today Date) layou
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, elems...)
 	})
-
-	// technically not write locked, but layout shouldn't be running in parallel anyway...
-	d.scrollPos = l.Position
-	return dim
 }
 
 func run() error {
@@ -165,6 +160,7 @@ func run() error {
 			for i := range tabs {
 				if tabs[i].button.Pressed() {
 					activeTab = &tabs[i]
+					activeTab.scroller.Position = layout.Position{} // reset scroll
 				}
 			}
 			gtx := app.NewContext(&ops, e)
