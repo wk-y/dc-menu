@@ -1,0 +1,8 @@
+#!/bin/bash
+
+rm dc-dining.apk{,.idsig} -f
+
+: ${ANDROID_SDK_ROOT:=/var/home/user/Android/Sdk}
+export ANDROID_SDK_ROOT
+
+gogio -target android -appid io.github.wk_y.DcMenu -icon icon.png .
