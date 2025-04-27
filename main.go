@@ -124,10 +124,7 @@ func (d *DcTab) layout(th *material.Theme, gtx layout.Context, today Date) layou
 			return d.scroller.Layout(gtx, len(currentDay.Sections), func(gtx layout.Context, index int) layout.Dimensions {
 				elems := []layout.FlexChild{}
 
-				section := currentDay.Sections[d.section]
-				elems = append(elems, layout.Rigid(material.H3(th, section.Name).Layout))
-
-				for _, station := range section.Stations {
+				for _, station := range currentDay.Sections[d.section].Stations {
 					elems = append(elems, layout.Rigid(material.H4(th, station.Name).Layout))
 
 					for _, menuItem := range station.Menu {
