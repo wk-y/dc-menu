@@ -31,12 +31,14 @@ var dcs = [...]string{"segundo", "cuarto", "tercero", "latitude"}
 
 type DcTab struct {
 	sync.RWMutex
-	name     string
-	dc       string
-	button   widget.Clickable
-	err      error
-	menu     Menu
-	scroller layout.List
+	name        string
+	dc          string
+	section     int
+	err         error
+	menu        Menu
+	scroller    layout.List
+	button      widget.Clickable
+	sectionTabs []widget.Clickable
 }
 
 func (d *DcTab) load(today Date) {
@@ -86,23 +88,65 @@ func (d *DcTab) layout(th *material.Theme, gtx layout.Context, today Date) layou
 		return material.Body1(th, "Today's menu was not fetched.").Layout(gtx)
 	}
 
-	d.scroller.Axis = layout.Vertical
-	return d.scroller.Layout(gtx, len(currentDay.Sections), func(gtx layout.Context, index int) layout.Dimensions {
-		elems := []layout.FlexChild{}
-		for _, section := range currentDay.Sections {
-			elems = append(elems, layout.Rigid(material.H3(th, section.Name).Layout))
+	// resize tabs
+	for range len(currentDay.Sections) - len(d.sectionTabs) {
+		d.sectionTabs = append(d.sectionTabs, widget.Clickable{})
+	}
+	d.sectionTabs = d.sectionTabs[:len(currentDay.Sections)]
 
-			for _, station := range section.Stations {
-				elems = append(elems, layout.Rigid(material.H4(th, station.Name).Layout))
-
-				for _, menuItem := range station.Menu {
-					elems = append(elems, layout.Rigid(material.Body1(th, menuItem.Name).Layout))
-				}
-			}
+	// update section based on tab clicks
+	for i := range d.sectionTabs {
+		if d.sectionTabs[i].Clicked(gtx) {
+			d.section = i
+			d.scroller = layout.List{}
 		}
+	}
+	if d.section > len(currentDay.Sections) {
+		d.section = 0
+	}
 
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, elems...)
-	})
+	// layout for tabs
+	tabButtons := make([]layout.FlexChild, len(currentDay.Sections))
+	for i, section := range currentDay.Sections {
+		theme := th
+		if i != d.section {
+			theme = inactiveTh
+		}
+		tabButtons[i] = layout.Flexed(1, material.Button(theme, &d.sectionTabs[i], section.Name).Layout)
+	}
+
+	d.scroller.Axis = layout.Vertical
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx, tabButtons...)
+		}),
+		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			return d.scroller.Layout(gtx, len(currentDay.Sections), func(gtx layout.Context, index int) layout.Dimensions {
+				elems := []layout.FlexChild{}
+
+				section := currentDay.Sections[d.section]
+				elems = append(elems, layout.Rigid(material.H3(th, section.Name).Layout))
+
+				for _, station := range section.Stations {
+					elems = append(elems, layout.Rigid(material.H4(th, station.Name).Layout))
+
+					for _, menuItem := range station.Menu {
+						elems = append(elems, layout.Rigid(material.Body1(th, menuItem.Name).Layout))
+					}
+				}
+
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, elems...)
+			})
+		}),
+	)
+}
+
+var th, inactiveTh *material.Theme
+
+func init() {
+	th = material.NewTheme()
+	inactiveTh = material.NewTheme()
+	inactiveTh.Palette.ContrastBg = color.NRGBA{128, 128, 128, 255}
 }
 
 func run() error {
@@ -132,10 +176,6 @@ func run() error {
 		}()
 	}
 
-	th := material.NewTheme()
-	inactiveTh := material.NewTheme()
-	inactiveTh.Palette.ContrastBg = color.NRGBA{128, 128, 128, 255}
-
 	activeTab := &tabs[0]
 	tabButtons := make([]layout.FlexChild, len(tabs))
 	for i := range tabs {
@@ -157,13 +197,14 @@ func run() error {
 		case app.DestroyEvent:
 			return e.Err
 		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
+
 			for i := range tabs {
-				if tabs[i].button.Pressed() {
+				if tabs[i].button.Clicked(gtx) {
 					activeTab = &tabs[i]
 					activeTab.scroller.Position = layout.Position{} // reset scroll
 				}
 			}
-			gtx := app.NewContext(&ops, e)
 
 			layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
