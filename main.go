@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"log"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +30,6 @@ var dcs = [...]string{"segundo", "cuarto", "tercero", "latitude"}
 
 type DcTab struct {
 	sync.RWMutex
-	name        string
 	dc          string
 	section     int
 	err         error
@@ -164,8 +162,7 @@ func run() error {
 
 		go func() {
 			tabs[i] = DcTab{
-				name: strings.ToTitle(dc),
-				dc:   dc,
+				dc: dc,
 			}
 
 			tabs[i].load(today)
@@ -183,7 +180,7 @@ func run() error {
 				theme = th
 			}
 
-			return material.Button(theme, &tabs[i].button, tabs[i].name).Layout(gtx)
+			return material.Button(theme, &tabs[i].button, tabs[i].menu.Name).Layout(gtx)
 		})
 	}
 

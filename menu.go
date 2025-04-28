@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -27,6 +28,7 @@ type MenuSection struct {
 }
 
 type Menu struct {
+	Name  string
 	Daily map[Date]*DailyMenu
 }
 
@@ -34,6 +36,16 @@ func fetchMenu(url string) (result Menu, err error) {
 	result.Daily = map[Date]*DailyMenu{}
 
 	c := colly.NewCollector()
+
+	// Extract the DC name from the page title
+	c.OnHTML("title", func(h *colly.HTMLElement) {
+		result.Name = strings.SplitN(h.DOM.Text(), "|", 2)[0]
+		result.Name = strings.Trim(result.Name, " ")
+		for _, suffixWord := range []string{"Menu", "DC"} {
+			result.Name, _ = strings.CutSuffix(result.Name, suffixWord)
+			result.Name = strings.Trim(result.Name, " ")
+		}
+	})
 
 	c.OnHTML(".menu_maincontainer", func(h *colly.HTMLElement) {
 		dateString := h.DOM.Find("h3").Text()
